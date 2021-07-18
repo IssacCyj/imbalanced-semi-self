@@ -26,10 +26,10 @@ parser.add_argument('--gpu', default=0, type=int, help='GPU id to use')
 # load trained models
 parser.add_argument('--resume', type=str, default='')
 # data related
-parser.add_argument('--data_dir', default='./data', type=str,
+parser.add_argument('--data_dir', default='/media/data', type=str,
                     help='directory that has unlabeled data')
 parser.add_argument('--data_filename', default='ti_80M_selected.pickle', type=str)
-parser.add_argument('--output_dir', default='./data', type=str)
+parser.add_argument('--output_dir', default='/media/data', type=str)
 parser.add_argument('--output_filename', default='pseudo_labeled_cifar.pickle', type=str)
 
 
@@ -94,11 +94,11 @@ transform_val = transforms.Compose([
 ])
 
 if args.dataset == 'cifar10':
-    unlabeled_data = CIFAR10('./data', train=False, transform=transform_val)
+    unlabeled_data = CIFAR10(args.data_dir, train=False, transform=transform_val)
     unlabeled_data.data = data['data']
     unlabeled_data.targets = list(data['extrapolated_targets'])
 else:
-    unlabeled_data = SVHN('./data', split='extra', transform=transform_val)
+    unlabeled_data = SVHN(args.data_dir, split='extra', transform=transform_val)
 
 data_loader = torch.utils.data.DataLoader(unlabeled_data,
                                           batch_size=200,

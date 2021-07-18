@@ -4,6 +4,9 @@ __pycache__/
 .git
 .DS_store
 
+checkpoint/
+log/
+
 # Environments
 .env
 .venv

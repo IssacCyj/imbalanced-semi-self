@@ -22,7 +22,7 @@ model_names = sorted(name for name in models.__dict__
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset', default='cifar10', choices=['cifar10', 'svhn'])
-parser.add_argument('--data_path', type=str, default='./data')
+parser.add_argument('--data_path', type=str, default='/media/data')
 parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet32', choices=model_names,
                     help='model architecture: ' + ' | '.join(model_names))
 parser.add_argument('--loss_type', default="CE", type=str, choices=['CE', 'Focal', 'LDAM'])
@@ -48,6 +48,9 @@ parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true', he
 parser.add_argument('--seed', default=None, type=int, help='seed for initializing training.')
 parser.add_argument('--root_log', type=str, default='log')
 parser.add_argument('--root_model', type=str, default='./checkpoint')
+
+parser.add_argument('--freeze_backbone', action='store_true')
+
 best_acc1 = 0
 
 
@@ -55,6 +58,8 @@ def main():
     args = parser.parse_args()
     args.store_name = '_'.join([args.dataset, args.arch, args.loss_type, args.train_rule, args.imb_type,
                                 str(args.imb_factor), str(args.imb_factor_unlabel), args.exp_str])
+    if args.freeze_backbone:
+        args.store_name += '_freeze'
     prepare_folders(args)
     if args.seed is not None:
         random.seed(args.seed)
@@ -190,6 +195,14 @@ def main_worker(gpu, args):
             else:
                 assert set(msg.missing_keys) == {"fc.weight", "fc.bias"}
         print(f'===> Pre-trained model loaded: {args.pretrained_model}')
+
+    if args.freeze_backbone:
+        print('Freezing backbone. Only optimize....')
+        for name, param in model.named_parameters():
+            if 'fc' not in name:
+                param.requires_grad = False
+            else:
+                print(name)
 
     cudnn.benchmark = True
 
