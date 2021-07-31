@@ -21,7 +21,7 @@ model_names = sorted(name for name in models.__dict__
                      and callable(models.__dict__[name]))
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--dataset', default='cifar10', choices=['cifar10', 'cifar100', 'svhn'])
+parser.add_argument('--dataset', default='cifar10', choices=['cifar10', 'cifar100', 'svhn', 'cifar10+svhn'])
 parser.add_argument('--data_path', type=str, default='/media/data')
 parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet32', choices=model_names,
                     help='model architecture: ' + ' | '.join(model_names))
@@ -86,6 +86,8 @@ def main_worker(gpu, args):
         num_classes = 100
     elif args.dataset in {'cifar10', 'svhn'}:
         num_classes = 10
+    elif args.dataset == 'cifar10+svhn':
+        num_classes = 20
     else:
         raise NotImplementedError
     use_norm = True if args.loss_type == 'LDAM' else False
@@ -155,6 +157,31 @@ def main_worker(gpu, args):
             num_workers=args.workers, pin_memory=True, sampler=train_sampler)
         val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=100, shuffle=False,
                                                  num_workers=args.workers, pin_memory=True)
+    elif args.dataset == 'cifar10+svhn':
+        train_dataset = ImbalanceCIFAR10(
+            root=args.data_path, imb_type=args.imb_type, imb_factor=args.imb_factor,
+            rand_number=args.rand_number, train=True, download=True, transform=transform_train)
+
+        train_dataset_svht = ImbalanceSVHN(
+            root=args.data_path, imb_type=args.imb_type, imb_factor=1.,
+            rand_number=args.rand_number, split='train', download=True, transform=transform_train)
+
+        print(f'Pre-merging dataset length {len(train_dataset.data)}')
+        train_dataset.data = np.concatenate([train_dataset.data, train_dataset_svht.data.transpose(0, 2, 3, 1)])
+        train_dataset.targets = np.hstack([np.array(train_dataset.targets), np.array(train_dataset_svht.labels) + 10])
+        print(f'Post-merging dataset length {len(train_dataset.data)}')
+
+        val_dataset = datasets.CIFAR10(root=args.data_path,
+                                       train=False, download=True, transform=transform_val)
+
+        train_sampler = None
+        if args.train_rule == 'Resample':
+            train_sampler = ImbalancedDatasetSampler(train_dataset)
+        train_loader = torch.utils.data.DataLoader(
+            train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None),
+            num_workers=args.workers, pin_memory=True, sampler=train_sampler)
+        val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=100, shuffle=False,
+                                                 num_workers=args.workers, pin_memory=True)
     else:
         raise NotImplementedError(f"Dataset {args.dataset} is not supported!")
 
@@ -164,7 +191,7 @@ def main_worker(gpu, args):
         checkpoint = torch.load(args.resume, map_location=torch.device(f'cuda:{str(args.gpu)}'))
         model.load_state_dict(checkpoint['state_dict'])
         print(f"===> Checkpoint '{args.resume}' loaded, testing...")
-        validate(val_loader, model, nn.CrossEntropyLoss(), 0, args)
+        validate(val_loader, model, nn.CrossEntropyLoss(), 0, args, eval_only=True)
         return
 
     if args.resume:
@@ -331,7 +358,7 @@ def train(train_loader, model, criterion, optimizer, epoch, args, log, tf_writer
     tf_writer.add_scalar('lr', optimizer.param_groups[-1]['lr'], epoch)
 
 
-def validate(val_loader, model, criterion, epoch, args, log=None, tf_writer=None, flag='val'):
+def validate(val_loader, model, criterion, epoch, args, log=None, tf_writer=None, flag='val', eval_only=False):
     batch_time = AverageMeter('Time', ':6.3f')
     losses = AverageMeter('Loss', ':.4e')
     top1 = AverageMeter('Acc@1', ':6.2f')

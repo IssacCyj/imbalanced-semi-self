@@ -22,8 +22,8 @@ model_names = sorted(name for name in models.__dict__
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset', default='cifar10', choices=['inat', 'imagenet', 'cifar10', 'cifar100'])
-parser.add_argument('--data_path', type=str, default='./data')
-parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet50', choices=model_names,
+parser.add_argument('--data_path', type=str, default='/media/data')
+parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet32', choices=model_names,
                     help='model architecture: ' + ' | '.join(model_names))
 parser.add_argument('--loss_type', default="CE", type=str, help='loss type')
 parser.add_argument('--imb_type', default="exp", type=str, help='imbalance type')
@@ -33,7 +33,7 @@ parser.add_argument('--train_rule', default='None', type=str,
 parser.add_argument('--rand_number', default=0, type=int, help='fix random number for data sampling')
 parser.add_argument('--exp_str', default='pretrain_rot',
                     type=str, help='(additional) name to indicate which experiment it is')
-parser.add_argument('--gpu', default=None, type=int, help='GPU id to use')
+parser.add_argument('--gpu', default=0, type=int, help='GPU id to use')
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N')
 parser.add_argument('--epochs', default=200, type=int, metavar='N')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N')
